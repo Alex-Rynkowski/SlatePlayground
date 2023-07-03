@@ -16,6 +16,8 @@
 *.dylib
 *.dll
 
+
+
 # Fortran module files
 *.mod
 
@@ -72,3 +74,5 @@ Plugins/*/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+/Plugins/Developer/RiderLink/

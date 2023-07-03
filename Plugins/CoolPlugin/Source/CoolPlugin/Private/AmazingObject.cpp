@@ -12,10 +12,13 @@
 #include "Kismet/Public/SMyBlueprint.h"
 #include "EdGraphSchema_K2_Actions.h"
 #include "ISinglePropertyView.h"
+#include "K2Node_FunctionEntry.h"
 #include "K2Node_Variable.h"
+#include "K2_CoolNode.h"
 #include "Kismet/KismetTextLibrary.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Toolkits/ToolkitManager.h"
+#include "UObject/UnrealTypePrivate.h"
 #include "UObject/WeakFieldPtr.h"
 
 #define LOCTEXT_NAMESPACE "MyLocText"
@@ -57,43 +60,49 @@ void FAmazingObject::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 				FName(PropertyBeingCustomized->GetName()),
 				InitParams);
 
+			if(!PropertyView)
+			{
+				
+				return;
+			}
 			auto PropHandle = PropertyView->GetPropertyHandle();
 			const FSimpleDelegate OnStructContentsPreChangedDelegate = FSimpleDelegate::CreateSP(this,
 			                                                                                     &FAmazingObject::OnStructContentsPreChanged, NodeInstance);
 			PropHandle->SetOnPropertyValuePreChange(OnStructContentsPreChangedDelegate);
 
-			UE_LOG(LogTemp, Warning, TEXT("Value changed!"))
 			if (PropertyBeingCustomized->HasAnyPropertyFlags(CPF_Config))
 			{
-				UBlueprint* const BlueprintObj = UBlueprint::GetBlueprintFromClass(NodeInstance->GetClass());
-				FString NewFuncName = FString::Printf(TEXT("Ini_%s"), *PropertyBeingCustomized->GetName());
-				UEdGraph* FuncGraph = FindObject<UEdGraph>(BlueprintObj, *NewFuncName);
-				if (!FuncGraph)
+				TArray<FString> PropKeys;
+				Properties.GetKeys(PropKeys);
+				int32 PropertyIndex = PropKeys.Find(PropertyBeingCustomized->GetName());
+				if(PropKeys.IsEmpty())
+					return;
+				if ((Properties[PropertyBeingCustomized->GetName()] & CPF_Config) != (PropertyBeingCustomized->PropertyFlags & CPF_Config))
 				{
-					FuncGraph = FBlueprintEditorUtils::CreateNewGraph(BlueprintObj, FName(*NewFuncName), UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
-					FBlueprintEditorUtils::AddFunctionGraph<UClass>(BlueprintObj, FuncGraph, false, NULL);
+					UBlueprint* const BlueprintObj = UBlueprint::GetBlueprintFromClass(NodeInstance->GetClass());
+					FString NewFuncName = FString::Printf(TEXT("Ini_%s"), *PropertyBeingCustomized->GetName());
+					UEdGraph* FuncGraph = FindObject<UEdGraph>(BlueprintObj, *NewFuncName);
+					if (!FuncGraph)
+					{
+						FuncGraph = FBlueprintEditorUtils::CreateNewGraph(BlueprintObj, FName(*NewFuncName), UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
+						FBlueprintEditorUtils::AddFunctionGraph<UClass>(BlueprintObj, FuncGraph, true, NULL);
+
+						FProperty* Prop = PropertyBeingCustomized.Get();
+						FName PinCategory = UEdGraphSchema_K2::PC_Boolean;
+						if(CastField<FBoolProperty>(Prop))
+						{
+							PinCategory = UEdGraphSchema_K2::PC_Boolean;
+						}
+						else if(CastField<FIntProperty>(Prop))
+						{
+							PinCategory = UEdGraphSchema_K2::PC_Int;
+						}
+						FuncGraph->Nodes[0]->CreatePin(EGPD_Output, PinCategory, "Value");
+					}
 				}
 			}
-			Category.AddGroup("MyVars", LOCTEXT("MyVariableDisplayName", "My Variable"), false, true);
 		}
 	}
-	// 	Category.AddCustomRow( LOCTEXT("VariableExposeToSpawnLabel", "Expose on Spawn") )
-	// .Visibility(TAttribute<EVisibility>(this, &FBlueprintVarActionDetails::ExposeOnSpawnVisibility))
-	// .NameContent()
-	// [
-	// 	SNew(STextBlock)
-	// 	.ToolTip(ExposeOnSpawnTooltip)
-	// 	.Text( LOCTEXT("VariableExposeToSpawnLabel", "Expose on Spawn") )
-	// 	.Font( DetailFontInfo )
-	// ]
-	// .ValueContent()
-	// [
-	// 	SNew(SCheckBox)
-	// 	.IsChecked( this, &FBlueprintVarActionDetails::OnGetExposedToSpawnCheckboxState )
-	// 	.OnCheckStateChanged( this, &FBlueprintVarActionDetails::OnExposedToSpawnChanged )
-	// 	.IsEnabled(IsVariableInBlueprint())
-	// 	.ToolTip(ExposeOnSpawnTooltip)
-	// ];
 }
 
 void FAmazingObject::OnStructContentsPreChanged(class UAmaingUnrealObject* InNodeInstance)

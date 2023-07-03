@@ -17,7 +17,18 @@ public:
 		: MyBlueprint(InBlueprintEditor)
 		, BlueprintPtr(Blueprint)
 	{
+		Properties.Empty();
+		UAmaingUnrealObject* NodeInstance = CastChecked<UAmaingUnrealObject>(BlueprintPtr->GeneratedClass->ClassDefaultObject);
+		
+		UE_LOG(LogTemp, Warning, TEXT("helooo"))
+		for (TFieldIterator<FProperty> PropIt(NodeInstance->GetClass()); PropIt; ++PropIt)
+		{
+			FProperty* Property = *PropIt;
+			Properties.Add(Property->GetName(), Property->PropertyFlags);
+		}
 	}
+
+	TMap<FString, EPropertyFlags> Properties;
 	
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 	TObjectPtr<IDetailLayoutBuilder> DetailLayout;
